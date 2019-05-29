@@ -6,7 +6,7 @@
 
 QT       += core gui
 RC_ICONS = DDSAR.ico
-VERSION = 2.0.5
+VERSION = 2.1.0
 RC_LANG = 0x0004
 
 QMAKE_TARGET_COMPANY = Uranus

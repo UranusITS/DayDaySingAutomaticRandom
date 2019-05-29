@@ -14,6 +14,7 @@
 #include <QTimer>
 #include <QVector>
 #include <QProcess>
+#include <QDateTime>
 #include <QTextStream>
 #include <QMessageBox>
 #include <QFileDialog>
@@ -119,6 +120,24 @@ namespace FileOperation {
     }
 }
 
+namespace Log {
+    static QString LogName="DDSAR.log";
+    static QFile LogFile;
+    static QTextStream log(&LogFile);
+    void init() {
+        LogFile.setFileName(LogName);
+        LogFile.open(QIODevice::ReadOnly|QIODevice::Text);
+        QString old=log.readAll();
+        LogFile.close();
+        LogFile.open(QIODevice::WriteOnly|QIODevice::Text);
+        log<<old;
+    }
+    void Write(QString TypeMessage,QString TextMessage) {
+        QString TimeMessage=QDateTime::currentDateTime().toString("[yyyy/MM/dd/hh:mm:ss]");
+        log<<'['<<TypeMessage<<']'<<TimeMessage<<TextMessage<<endl;
+    }
+}
+
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow) {
@@ -134,31 +153,36 @@ MainWindow::MainWindow(QWidget *parent) :
     }
 
     ui->setupUi(this);
+    Log::init();
 
     //随机数初始化
     srand(uint(time(nullptr)));
+    Log::Write("OPRT","Rand seed changes successfully.");
 
     //读取歌曲信息
     FileName="Data.ddt";
     QVector<QString>data=FileOperation::ReadFile();
     if(data.empty()) {
         QMessageBox::information(this,"警告","数据无法读取");
+        Log::Write("WARN","Open \""+FileName+"\" failed!");
         return ;
     }
     FileOperation::TranslateToListWidget(data,ui);
+    Log::Write("OPRT","Open \""+FileName+"\".");
     connect(timer,SIGNAL(timeout()),this,SLOT(GetRandom()));
 }
 
 MainWindow::~MainWindow() {
     if(!(this->StartOK)) {
-        QMessageBox::information(this,"Warning","You have made it here!");
         delete ui;
     }
     //保存歌曲信息
     else {
         if(!FileOperation::SaveFile(ui)) {
+            Log::Write("WARN","Save data failed when closing DDSAR!");
             QMessageBox::information(this,"警告","数据无法写入");
         }
+        Log::Write("OPRT","Close DDSAR.");
         delete ui;
     }
 }
@@ -180,12 +204,20 @@ void MainWindow::on_AddSong_clicked() {
         ExistSet.insert(RealName);
         if(SingerName.length()) {
             ui->SongsList->addItem(SongName+" - "+SingerName);
+            Log::Write("OPRT","Add song \""+SongName+" - "+SingerName+"\".");
         }
         else {
             ui->SongsList->addItem(SongName);
+            Log::Write("OPRT","Add song \""+SongName+"\".");
         }
     }
     else {
+        if(SingerName.length()) {
+            Log::Write("WARN","Add existed song \""+SongName+" - "+SingerName+"\"!");
+        }
+        else {
+            Log::Write("WARN","Add existed song \""+SongName+"\"!");
+        }
         QMessageBox::information(this,"警告","有重复歌曲");
     }
     return ;
@@ -215,6 +247,7 @@ void MainWindow::on_DeleteSong_clicked() {
         ExistSet.remove(RealName);
     }
     ui->SongsList->takeItem(ui->SongsList->currentRow());
+    Log::Write("OPRT","Delete song \""+ui->SongsList->currentItem()->text()+"\".");
     return ;
 }
 
@@ -230,6 +263,7 @@ void MainWindow::on_GetRandom_clicked() {
         ui->MakeRandom->setDisabled(true);
         timer->start(75);
         ui->GetRandom->setText("暂停");
+        Log::Write("OPRT","Rand begins.");
     }
     else {
         timer->stop();
@@ -239,6 +273,7 @@ void MainWindow::on_GetRandom_clicked() {
         ui->DeleteSong->setEnabled(true);
         ui->MakeRandom->setEnabled(true);
         ui->GetRandom->setText("随机");
+        Log::Write("OPRT","Rand result: \""+ui->SongsList->currentItem()->text()+"\".");
     }
     return ;
 }
@@ -267,6 +302,7 @@ void MainWindow::on_MakeRandom_clicked()
     for(int i=0;i<tot;i++) {
         ui->SongsList->addItem(tmp[i]);
     }
+    Log::Write("OPRT","Shuffle succeeds.");
     return ;
 }
 
@@ -274,16 +310,19 @@ void MainWindow::on_MakeRandom_clicked()
 void MainWindow::on_ActionFileIn_triggered() {
     if(!FileOperation::SaveFile(ui)) {
         QMessageBox::information(this,"警告","数据无法写入");
+        Log::Write("WARN","Save file \""+FileName+"\" failed!");
     }
     QString TmpFileName=FileName;
     FileName=QFileDialog::getOpenFileName(this,tr("Open File"),".","DDSAR Files(*.ddt)");
     QVector<QString>data=FileOperation::ReadFile();
     if(data.empty()) {
         QMessageBox::information(this,"警告","数据无法读取");
+        Log::Write("WARN","File \""+FileName+"\" is empty!");
         FileName=TmpFileName;
         return ;
     }
     FileOperation::TranslateToListWidget(data,ui);
+    Log::Write("OPRT","Open file \""+FileName+"\".");
     return ;
 }
 
@@ -293,9 +332,11 @@ void MainWindow::on_ActionFileOut_triggered() {
     FileName=QFileDialog::getOpenFileName(this,tr("Save File"),".","DDSAR Files(*.ddt)");
     if(!FileOperation::SaveFile(ui)) {
         QMessageBox::information(this,"警告","数据无法写入");
+        Log::Write("WARN","Save file \""+FileName+"\" failed!");
         FileName=TmpFileName;
         return ;
     }
+    Log::Write("OPRT","Save file \""+FileName+"\".");
     return ;
 }
 
@@ -303,6 +344,7 @@ void MainWindow::on_ActionFileOut_triggered() {
 //TODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
 void MainWindow::on_ChangeFile_triggered() {
     QMessageBox::information(this,"Warning","暂不可用（也就是coder还没打这个代码）");
+    Log::Write("WTF?","Someone has found the egg.");
     return ;
 /**
     QString TmpFileName=QFileDialog::getOpenFileName(this,tr("Save File"));
